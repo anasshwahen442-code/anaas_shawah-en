@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+venv/
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data privacy — real patient data must NEVER be committed
+data/real_*
+data/*_deidentified.csv
+data/*_PHI*
+*.wav
+synthetic_cough_audio/
+
+# Outputs
+*.pdf
+results/*.png
+!results/.gitkeep
