@@ -6,13 +6,16 @@ Emergency Medicine & Critical Care | Applied Data Science
 
 [![Tests](https://img.shields.io/badge/tests-5%20passing-brightgreen)]()
 [![Data](https://img.shields.io/badge/data-synthetic--only-orange)]()
+[![Status](https://img.shields.io/badge/status-pilot%20sample%20only-red)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
 
-## ⚠️ Status: Methodological Pilot on Synthetic Data — Read This First
+## ⚠️ Status: Pilot Sample Only — Not a Clinical Study — Read This First
 
-**Every result in this repository is computed on synthetic data structured to resemble the planned real-world variables. No real patient data has been used or accessed.** This phase exists to validate the analysis pipeline — feature extraction, cross-validation design, and leakage controls — *before* IRB-approved real-world data collection begins (see `docs/`). Do not cite AUC figures below as clinical findings; cite them as pipeline-validation evidence.
+**This repository is a methodological pilot sample, nothing more.** It exists to demonstrate technical and analytical readiness — that the code, statistics, and documentation practices are sound — before any real patient is ever involved. It is not a clinical study, not a validated tool, and not evidence of real-world model performance.
+
+**Every result in this repository is computed on synthetic data structured to resemble the planned real-world variables. No real patient data has been used, collected, or accessed at any point.** This phase exists to validate the analysis pipeline — feature extraction, cross-validation design, and leakage controls — *before* IRB-approved real-world data collection begins (see `docs/`). Do not cite AUC figures below as clinical findings; cite them as pilot-sample, pipeline-validation evidence only.
 
 ## 1. Clinical Rationale
 
