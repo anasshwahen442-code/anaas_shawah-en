@@ -11,6 +11,12 @@ AUC figures ended up unverifiable). This script is the single, reproducible
 entry point for every reported number: run it, and every value in the
 README's results table should match its output exactly.
 
+Confidence intervals: mean/std across 5 CV folds describes fold-to-fold
+*variance*, not the *precision* of the AUC estimate itself. With n=50 that
+distinction matters -- two models can look "different" by mean AUC while
+their bootstrap CIs overlap heavily, meaning the apparent ranking is not
+statistically distinguishable from noise. We report both.
+
 Usage:
     python src/model_comparison.py
 
@@ -26,13 +32,15 @@ from sklearn.compose import ColumnTransformer
 from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.metrics import roc_auc_score
+from sklearn.model_selection import StratifiedKFold, cross_val_predict, cross_val_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
 RANDOM_STATE = 42
 N_SPLITS = 5
+N_BOOTSTRAP = 2000  # resamples for the AUC confidence interval
 
 CLINICAL_COLS = [
     "Age", "FEV1_pct_predicted", "CRP_mg_L", "Eosinophils_cells_uL",
@@ -56,13 +64,42 @@ def cv() -> StratifiedKFold:
     return StratifiedKFold(n_splits=N_SPLITS, shuffle=True, random_state=RANDOM_STATE)
 
 
+def bootstrap_auc_ci(y_true, y_proba, n_boot: int = N_BOOTSTRAP, seed: int = RANDOM_STATE) -> tuple[float, float]:
+    """Nonparametric 95% CI for AUC via patient-level bootstrap resampling
+    of out-of-fold predicted probabilities. This bounds the precision of the
+    AUC point estimate itself -- distinct from (and complementary to) the
+    fold-to-fold std, which only describes variance across the 5 CV splits.
+    """
+    rng = np.random.default_rng(seed)
+    y_true = np.asarray(y_true)
+    y_proba = np.asarray(y_proba)
+    n = len(y_true)
+    boot_scores = []
+    for _ in range(n_boot):
+        idx = rng.integers(0, n, n)
+        y_b, p_b = y_true[idx], y_proba[idx]
+        if len(np.unique(y_b)) < 2:
+            continue  # skip degenerate resamples (both classes required for AUC)
+        boot_scores.append(roc_auc_score(y_b, p_b))
+    lo, hi = np.percentile(boot_scores, [2.5, 97.5])
+    return round(float(lo), 3), round(float(hi), 3)
+
+
 def evaluate(name: str, estimator, X, y) -> dict:
     scores = cross_val_score(estimator, X, y, cv=cv(), scoring="roc_auc")
+
+    # Out-of-fold probabilities (leak-free: each patient's probability comes
+    # from a fold where that patient was held out) feed the bootstrap CI.
+    oof_proba = cross_val_predict(estimator, X, y, cv=cv(), method="predict_proba")[:, 1]
+    ci_lo, ci_hi = bootstrap_auc_ci(y, oof_proba)
+
     return {
         "model": name,
         "n_features": X.shape[1] if hasattr(X, "shape") else None,
         "mean_auc": round(float(scores.mean()), 3),
         "std_auc": round(float(scores.std()), 3),
+        "ci95_lo": ci_lo,
+        "ci95_hi": ci_hi,
         "fold_aucs": [round(float(s), 2) for s in scores],
     }
 
@@ -111,19 +148,23 @@ def main():
         result = evaluate(name, estimator, X, y)
         rows.append(result)
         print(f"{name:50s}  AUC = {result['mean_auc']:.3f} +/- {result['std_auc']:.3f}"
+              f"   95% CI [{result['ci95_lo']:.3f}, {result['ci95_hi']:.3f}]"
               f"   folds={result['fold_aucs']}")
 
     results_df = pd.DataFrame(rows)
     results_df.to_csv("results/model_comparison.csv", index=False)
 
     with open("results/model_comparison.md", "w") as f:
-        f.write("| Model | Features | Mean CV AUC | Std |\n|---|---|---|---|\n")
+        f.write("| Model | Features | Mean CV AUC | Fold Std | 95% CI (bootstrap) |\n")
+        f.write("|---|---|---|---|---|\n")
         for r in rows:
-            f.write(f"| {r['model']} | {r['n_features']} | {r['mean_auc']:.3f} | {r['std_auc']:.3f} |\n")
+            f.write(f"| {r['model']} | {r['n_features']} | {r['mean_auc']:.3f} | {r['std_auc']:.3f} "
+                    f"| [{r['ci95_lo']:.3f}, {r['ci95_hi']:.3f}] |\n")
 
     print("\nSaved results/model_comparison.csv and results/model_comparison.md")
-    print("\nReminder: n=50, synthetic data. Std AUC columns show real fold-to-fold\n"
-          "variance -- treat differences smaller than ~0.05 as noise, not a winner.")
+    print("\nReminder: n=50, synthetic data. The 95% CI bounds the precision of each")
+    print("AUC estimate; where CIs overlap substantially across models, the apparent")
+    print("ranking is not statistically distinguishable from noise at this sample size.")
 
 
 if __name__ == "__main__":

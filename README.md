@@ -27,14 +27,16 @@ This project is a methodological pilot toward testing that hypothesis, integrati
 
 Single source of truth: `src/model_comparison.py` — every number below is its direct, reproducible output (`results/model_comparison.csv`).
 
-| Model | Features | Mean CV AUC | Std across folds |
-|---|---|---|---|
-| Logistic Regression (clinical only) | 9 | 0.700 | 0.133 |
-| Random Forest (clinical only) | 9 | 0.654 | 0.160 |
-| **SVM – RBF (clinical only)** | 9 | **0.800** | **0.049** |
-| Logistic Regression + Audio PCA(k=8), leak-free | 41 | 0.775 | 0.068 |
+| Model | Features | Mean CV AUC | Fold Std | 95% CI (bootstrap) |
+|---|---|---|---|---|
+| Logistic Regression (clinical only) | 9 | 0.700 | 0.133 | [0.524, 0.834] |
+| Random Forest (clinical only) | 9 | 0.654 | 0.160 | [0.458, 0.781] |
+| **SVM – RBF (clinical only)** | 9 | **0.800** | **0.049** | [0.615, 0.885] |
+| Logistic Regression + Audio PCA(k=8), leak-free | 41 | 0.775 | 0.068 | [0.608, 0.875] |
 
-**Reading this table like a computer scientist, not just a clinician:** SVM has both the highest mean AUC *and* the lowest fold-to-fold variance (0.049 vs. 0.133 for LogReg) — with n=50, stability across folds is as important as the mean, since a high mean with high variance is not distinguishable from noise. None of the differences above 0.7 should be treated as a confirmed "best model" until re-tested on real data with a larger n; they are directionally informative, not conclusive.
+**Reading this table like a computer scientist, not just a clinician:** SVM has both the highest mean AUC *and* the lowest fold-to-fold variance (0.049 vs. 0.133 for LogReg). But the 95% bootstrap confidence intervals above overlap substantially across every model in this table (e.g. LogReg's upper bound of 0.834 sits inside SVM's interval) — at n=50, **the apparent ranking between models is not statistically distinguishable from noise**. SVM is the best point estimate and the most stable across folds, which is a reasonable basis for choosing it as the working model going forward, but "SVM beats LogReg" is not a claim this pilot can support with statistical confidence. That confirmation is exactly what the planned real-data validation study (`docs/Clinical_Validation_Plan.docx`) exists to provide.
+
+**Calibration is not yet assessed.** The AUC numbers above describe *discrimination* (can the model rank higher-risk patients above lower-risk ones) — they say nothing about *calibration* (whether a patient assigned "65% risk" by `src/add_risk_scores.py` actually experiences the outcome roughly 65% of the time). A discriminative-but-uncalibrated model can still mislead a clinician reading a percentage at face value. Calibration assessment (reliability diagrams, Brier score) is deferred to the real-data validation phase, where sample size can support it, but is flagged here explicitly rather than left implicit.
 
 ### 2.1 A documented methodological failure (kept deliberately visible)
 
@@ -44,7 +46,7 @@ The originally reported 0.813/0.838 AUC figures (an earlier project stage, befor
 
 ### 2.2 GOLD ABE risk stratification (exploratory, `src/add_risk_scores.py`)
 
-Out-of-fold predicted exacerbation risk and a GOLD 2023 ABE proxy group are computed per synthetic patient. **Known limitation, stated plainly:** the current synthetic CAT-score distribution skews the ABE grouping heavily toward group B (35/50 patients), because the generator's CAT-score mean (~18) sits well above the GOLD B threshold (≥10). This is a synthetic-data generation artifact, not a clinical finding, and is asserted against by `tests/test_pipeline.py::test_gold_group_uses_all_three_categories` so it can't silently worsen unnoticed.
+Out-of-fold predicted exacerbation risk and a GOLD 2023 ABE proxy group are computed per synthetic patient. **Known limitation, stated plainly:** the current synthetic CAT-score distribution skews the ABE grouping heavily toward group B (35/50 patients), because the generator's CAT-score mean (~18) sits well above the GOLD B threshold (≥10). This is a synthetic-data generation artifact, not a clinical finding, and is asserted against by `tests/test_pipeline.py::test_gold_group_uses_all_three_categories` so it can't silently worsen unnoticed. It is not urgent to fix before real-data collection (the real cohort will have its own, real distribution), but recalibrating `src/generate_dataset.py`'s CAT-score generator to better approximate published GOLD-group prevalence would make this synthetic pilot a more informative dry run of the real analysis.
 
 ## 3. Engineering Practices Applied
 
