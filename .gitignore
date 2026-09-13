@@ -20,3 +20,5 @@ synthetic_cough_audio/
 *.pdf
 results/*.png
 !results/.gitkeep
+.pytest_cache/
+data/*_with_risk.csv
