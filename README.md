@@ -36,7 +36,15 @@ Single source of truth: `src/model_comparison.py` — every number below is its 
 | Random Forest (clinical only) | 9 | 0.654 | 0.160 | [0.458, 0.781] |
 | **SVM – RBF (clinical only)** | 9 | **0.800** | **0.049** | [0.615, 0.885] |
 | Logistic Regression + Audio PCA(k=8), leak-free | 41 | 0.775 | 0.068 | [0.608, 0.875] |
-
+> **⚠️ Clarification on the headline AUC figure:** The highest AUC in this
+> table (0.800) belongs to the **clinical-only** SVM model — it does **not**
+> include audio features. The multimodal configuration that actually
+> integrates audiomics (Logistic Regression + Audio PCA) scored **0.775**.
+> If you have seen this project's AUC cited elsewhere as a "multimodal"
+> result, that 0.80 figure should be read as the clinical-only baseline,
+> not the multimodal pipeline. See the CI overlap discussion immediately
+> below — at n=50, neither figure is statistically distinguishable from
+> the other.
 **Reading this table like a computer scientist, not just a clinician:** SVM has both the highest mean AUC *and* the lowest fold-to-fold variance (0.049 vs. 0.133 for LogReg). But the 95% bootstrap confidence intervals above overlap substantially across every model in this table (e.g. LogReg's upper bound of 0.834 sits inside SVM's interval) — at n=50, **the apparent ranking between models is not statistically distinguishable from noise**. SVM is the best point estimate and the most stable across folds, which is a reasonable basis for choosing it as the working model going forward, but "SVM beats LogReg" is not a claim this pilot can support with statistical confidence. That confirmation is exactly what the planned real-data validation study (`docs/Clinical_Validation_Plan.docx`) exists to provide.
 
 **Calibration is not yet assessed.** The AUC numbers above describe *discrimination* (can the model rank higher-risk patients above lower-risk ones) — they say nothing about *calibration* (whether a patient assigned "65% risk" by `src/add_risk_scores.py` actually experiences the outcome roughly 65% of the time). A discriminative-but-uncalibrated model can still mislead a clinician reading a percentage at face value. Calibration assessment (reliability diagrams, Brier score) is deferred to the real-data validation phase, where sample size can support it, but is flagged here explicitly rather than left implicit.
